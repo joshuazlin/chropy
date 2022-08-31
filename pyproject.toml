@@ -19,5 +19,12 @@ classifiers = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/pypa/sampleproject"
-"Bug Tracker" = "https://github.com/pypa/sampleproject/issues"
+"Homepage" = "https://github.com/joshuazlin/chropy"
+"Bug Tracker" = "https://github.com/joshuazlin/chropy/issues"
+
+[tool.pytest.ini_options]
+addopts = "--doctest-modules"
+testpaths = ["tests","src"]
+
+[tool.coverage.run]
+source = ["src"]
