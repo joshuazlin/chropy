@@ -10,9 +10,12 @@ import pickle
 import time
 from tqdm import tqdm
 import os
+from .utils import finv
 
 defaults = {}
-for x in open('xml_defaults/xml.txt').read().split('\n\n'):
+current_dir = os.path.dirname(os.path.abspath(__file__))
+file_path = os.path.join(current_dir, 'xml_defaults', 'xml.txt')
+for x in open(file_path).read().split('\n\n'):
     y = finv(x,'Name:{Name}\nTags:{Tags}\nDescription:{Description}\nData:\n{Data}',capture_newline=True)
     defaults[y['Name']] = y
 
