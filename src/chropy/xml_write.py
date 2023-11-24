@@ -10,8 +10,13 @@ import pickle
 import time
 from tqdm import tqdm
 import os
-    
-def write_xml(meas_list, lattice_size, cfg_type=None, 
+
+defaults = {}
+for x in open('xml_defaults/xml.txt').read().split('\n\n'):
+    y = finv(x,'Name:{Name}\nTags:{Tags}\nDescription:{Description}\nData:\n{Data}',capture_newline=True)
+    defaults[y['Name']] = y
+
+def write_xml(meas_list, lattice_size, cfg_type=None,
               filehead=None,cfg=None,filetail=None,write=None):
     """
     Inputs:
@@ -21,48 +26,53 @@ def write_xml(meas_list, lattice_size, cfg_type=None,
             'IterableName' : [val1,val2,...],
             'Iterable*Name' : [wal1,wal2,...],...}
       lattice_size : (x,y,z,t)
-      cfg_type     ∈ {UNIT,WEAK_FIELD,NERSC} 
+      cfg_type     ∈ {UNIT,WEAK_FIELD,NERSC}
       type(filehead) is type(filetail) is str
       cfg          : [int]
-      
+
       write : if provided, writes to this. Include more documentation here.
     Returns:
-      XML file. 
+      XML file.
 
     If cfg_type is NERSC, then we are left with an XML file which needs you to replace
-    JRfileheadJRcfgJRfiletail.	
-    (iterable*) means that it will be iterated over, but creating a new measurement for 
+    JRfileheadJRcfgJRfiletail.
+    (iterable*) means that it will be iterated over, but creating a new measurement for
     each choice of parameters, and they are streamed together
     (iterable) means that it is iterated within a single measurement, and is one-shot
-    (Name,i) means that it will be iterated over, creating a new measurement for each 
+    (Name,i) means that it will be iterated over, creating a new measurement for each
     choice of parameters, and they are collated, over all measurements with same i
     """
-    
-    to_return = """<?xml version="1.0"?>
-<chroma>
-<Param>
-<InlineMeasurements>""" 
+
+    to_return = """<?xml version="1.0"?><chroma><Param><InlineMeasurements>"""
     to_collate = {}
     collate_idx = None
     for x in meas_list:
         #Check if we need to finish a collate step
-        if (collate_idx is not None) and ((type(x['Name']) is tuple and x['Name'][1] is not collate_idx) or \
-                                        (type(x['Name']) is not tuple)):
+        if (collate_idx is not None) and \
+               ((type(x['Name']) is tuple and x['Name'][1] is not collate_idx) or \
+                (type(x['Name']) is not tuple)):
             to_return += "".join(["".join(x) for x in zip(to_collate[collate_idx])])
 
         #Check if we need to collate this measurement against others
         if type(x['Name']) is tuple:
             if collate_idx is not x['Name'][1]:
-                to_collate[x['Name'][1]] = []    
+                to_collate[x['Name'][1]] = []
             collate_idx = x['Name'][1]
-            meas = defaults[x['Name'][0]]
+            meas = defaults[x['Name'][0]]['Data']
+            tags = defaults[x['Name'][0]]['Tags'].split(',')
         else:
             collate_idx = None
-            meas = defaults[x['Name']]
-        if type(meas) == tuple:
-            fiter = meas[1]
-            meas = meas[0]
+            meas = defaults[x['Name']]['Data']
+            tags = defaults[x['Name']]['Tags'].split(',')
 
+        #Check that we have what we need to replace the things that need to be replaced
+        if set(tags) != set([k for k in x.keys() if k != 'Name']):
+            print("You haven't replaced the right fields. You need to replace:")
+            print(set(tags))
+            print("And you currently have tried to replace")
+            print(set([k for k in x.keys() if k != 'Name']))
+            raise
+            
         #Go through and replace what needs to be replaced
         iterkeys = []
         itervals = []
@@ -71,17 +81,11 @@ def write_xml(meas_list, lattice_size, cfg_type=None,
                 continue
             if type(x[k]) is str:
                 #noniterable
-                meas = meas.replace("JR"+k,x[k])
-            elif type(x[k]) is list and "JR"+k in meas:
-                #is (iterable*)
+                meas = meas.replace(f"{{{k}}}",x[k])
+            elif type(x[k]) is list:
+                #Foliated
                 iterkeys.append(k)
                 itervals.append(x[k])
-            elif type(x[k]) is list and "JRiter" in meas:
-                #is (iterable)
-                meas = meas.replace("JRiter",fiter(x[k]))
-            else:
-                print("Couldn't find where to replace",x[k],"in my measurement called",x['Name'])
-                raise "RuhRoh"
 
         if len(iterkeys) == 0:
             to_return += meas
@@ -90,9 +94,9 @@ def write_xml(meas_list, lattice_size, cfg_type=None,
             for y in zip(*itervals):
                 temp = meas
                 for i in range(len(iterkeys)):
-                    temp = temp.replace("JR"+iterkeys[i],y[i])
+                    temp = temp.replace(f'{{{iterkeys[i]}}}',y[i])
                 if collate_idx is None:
-                    to_return += temp  
+                    to_return += temp
                 else:
                     temp_list.append(temp)
             if collate_idx is not None:
@@ -101,32 +105,26 @@ def write_xml(meas_list, lattice_size, cfg_type=None,
                 to_return += "".join(temp_list)
     if collate_idx is not None:
         to_return += "".join(["".join(x) for x in zip(*to_collate[collate_idx])])
-    tail = """</InlineMeasurements>
-<nrow>JRlattice_size</nrow>
-</Param>
-<RNG><Seed><elem>11</elem><elem>11</elem><elem>11</elem><elem>0</elem></Seed></RNG>
-<Cfg>
-  <cfg_type>JRcfg_type</cfg_type>
-  <cfg_file>JRfileheadJRcfgJRfiletail</cfg_file>
-</Cfg>
-</chroma>""" 
-    to_return += tail.replace("JRlattice_size"," ".join([str(x) for x in lattice_size]))
+    tail = """</InlineMeasurements><nrow>{lattice_size}</nrow></Param>
+              <RNG><Seed><elem>11</elem><elem>11</elem><elem>11</elem><elem>0</elem></Seed></RNG>
+              <Cfg><cfg_type>{cfg_type}</cfg_type><cfg_file>{filehead}{cfg}{filetail}</cfg_file>
+              </Cfg></chroma>"""
+    to_return += tail.replace(f'{{lattice_size}}'," ".join([str(x) for x in lattice_size]))
     if cfg_type is not None:
-        to_return = to_return.replace("JRcfg_type",cfg_type)
-        to_return = to_return.replace("JRfilehead","").replace("JRfiletail","")
-        to_return = to_return.replace("JRcfg","dummy")
+        to_return = to_return.replace(f"{{cfg_type}}",cfg_type)
+        to_return = to_return.replace(f"{{filehead}}","").replace(f"{{{filetail}}}","")
+        to_return = to_return.replace(f"{{cfg}}","dummy")
         return [to_return]
     else:
-        to_return = to_return.replace("JRcfg_type",'NERSC')
-        to_return = to_return.replace("JRfilehead",filehead).replace("JRfiletail",filetail)
+        to_return = to_return.replace(f"{{cfg_type}}",'NERSC')
+        to_return = to_return.replace(f"{{filehead}}",filehead).replace(f"{{filetail}}",filetail)
         if write is not None:
-            print("hello?")
             for x in cfg:
                 opf = open(write+"_"+str(x),"w")
-                opf.write(to_return.replace("JRcfg",str(x)))
+                opf.write(to_return.replace(f"{{cfg}}",str(x)))
                 opf.close()
-        return (to_return.replace("JRcfg",x) for x in cfg)
-   
+        return (to_return.replace(f"{{cfg}}",x) for x in cfg)
+
 def gen_run(chroma,
             inidir,
             outdir,
