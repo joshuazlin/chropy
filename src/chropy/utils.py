@@ -4,13 +4,13 @@ General utility functions
 
 import re
 
-def finv(x,pattern):
-    """Inverse f-string function. 
+def finv(x,pattern,capture_newline=False):
+    """Inverse f-string function.
 
     Parameters
     ----------
     x: The string to be matched to the pattern
-    pattern: A string that represents the pattern to search for. Should include substrings with groups encapsulated in curly braces, such as '{a}'. 
+    pattern: A string that represents the pattern to search for. Should include substrings with groups encapsulated in curly braces, such as '{a}'.
 
     Returns
     -------
@@ -23,7 +23,7 @@ def finv(x,pattern):
     To invert it, we can run
     >>> finv('_apple_banana_','_{a}_{b}_')
     {'a': 'apple', 'b': 'banana'}
-    
+
     finv will try and make the matched groups go as far to the right as possible
     >>> finv("yxxy","{a}x{b}")
     {'a': 'yx', 'b': 'y'}
@@ -44,13 +44,15 @@ def finv(x,pattern):
     a0 = re.sub('\.','\\.',pattern)
     a1 = re.sub('\_','\\_',a0)
     a2 = re.sub('\{','(?P<',a1)
-    a3 = re.sub('\}','>.*)',a2)
-
+    if capture_newline:
+        a3 = re.sub('\}','>[\\\\s\\\\S]*)',a2)
+    else:
+        a3 = re.sub('\}','>.*)',a2)
     temp = re.search(a3,x)
     if temp is None:
         return None
     return temp.groupdict()
-    
+
 def split_list(l,n):
     """
     Split list l into n components
