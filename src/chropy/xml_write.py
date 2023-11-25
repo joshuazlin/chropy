@@ -19,7 +19,7 @@ for x in open(file_path).read().split('\n\n'):
     y = finv(x,'Name:{Name}\nTags:{Tags}\nDescription:{Description}\nData:\n{Data}',capture_newline=True)
     defaults[y['Name']] = y
 
-def write_xml(meas_list, lattice_size, cfg_type=None,
+def write_xml(meas_list, lattice_size, cfg_type='NERSC',
               filehead=None,cfg=None,filetail=None,write=None):
     """
     Inputs:
@@ -112,21 +112,31 @@ def write_xml(meas_list, lattice_size, cfg_type=None,
               <RNG><Seed><elem>11</elem><elem>11</elem><elem>11</elem><elem>0</elem></Seed></RNG>
               <Cfg><cfg_type>{cfg_type}</cfg_type><cfg_file>{filehead}{cfg}{filetail}</cfg_file>
               </Cfg></chroma>"""
-    to_return += tail.replace(f'{{lattice_size}}'," ".join([str(x) for x in lattice_size]))
-    if cfg_type is not None:
-        to_return = to_return.replace(f"{{cfg_type}}",cfg_type)
-        to_return = to_return.replace(f"{{filehead}}","").replace(f"{{{filetail}}}","")
-        to_return = to_return.replace(f"{{cfg}}","dummy")
-        return [to_return]
-    else:
-        to_return = to_return.replace(f"{{cfg_type}}",'NERSC')
-        to_return = to_return.replace(f"{{filehead}}",filehead).replace(f"{{filetail}}",filetail)
-        if write is not None:
-            for x in cfg:
-                opf = open(write+"_"+str(x),"w")
-                opf.write(to_return.replace(f"{{cfg}}",str(x)))
-                opf.close()
-        return (to_return.replace(f"{{cfg}}",x) for x in cfg)
+    to_return += tail.replace(f'{{lattice_size}}'," ".join([str(x) for x in lattice_size]))    
+    to_return = to_return.replace(f"{{cfg_type}}",cfg_type)
+    to_return = to_return.replace(f"{{filehead}}",filehead).replace(f"{{filetail}}",filetail)
+    if write is not None:
+        for x in cfg:
+            opf = open(write+"_"+str(x),"w")
+            opf.write(to_return.replace(f"{{cfg}}",str(x)))
+            opf.close()
+    return (to_return.replace(f"{{cfg}}",x) for x in cfg)
+
+#
+#    if cfg_type is not None:
+#        to_return = to_return.replace(f"{{cfg_type}}",cfg_type)
+#        to_return = to_return.replace(f"{{filehead}}","").replace(f"{{{filetail}}}","")
+#        to_return = to_return.replace(f"{{cfg}}","dummy")
+#        return [to_return]
+#    else:
+#        to_return = to_return.replace(f"{{cfg_type}}",'NERSC')
+#        to_return = to_return.replace(f"{{filehead}}",filehead).replace(f"{{filetail}}",filetail)
+#        if write is not None:
+#            for x in cfg:
+#                opf = open(write+"_"+str(x),"w")
+#                opf.write(to_return.replace(f"{{cfg}}",str(x)))
+#                opf.close()
+#        return (to_return.replace(f"{{cfg}}",x) for x in cfg)
 
 def gen_run(chroma,
             inidir,
