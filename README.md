@@ -1,3 +1,3 @@
-# [Chro]ma made easy in [py]thon
 
-Some python scripts to make using Chroma easy.
+Some python scripts to deal with chroma xml files
+
