@@ -117,7 +117,7 @@ def write_xml(meas_list, lattice_size, cfg_type='NERSC',
     to_return = to_return.replace(f"{{filehead}}",filehead).replace(f"{{filetail}}",filetail)
     if write is not None:
         for x in cfg:
-            opf = open(write+"_"+str(x),"w")
+            opf = open(write+str(x),"w")
             opf.write(to_return.replace(f"{{cfg}}",str(x)))
             opf.close()
     return (to_return.replace(f"{{cfg}}",x) for x in cfg)
